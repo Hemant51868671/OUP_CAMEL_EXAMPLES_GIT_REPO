@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:camel="http://camel.apache.org/schema/spring"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:cxf="http://camel.apache.org/schema/cxf"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd
+       http://camel.apache.org/schema/cxf http://camel.apache.org/schema/cxf/camel-cxf.xsd">
+
+	<bean id="activeMQConnectionFactory"
+		class="org.apache.activemq.ActiveMQConnectionFactory" primary="true">
+		<property name="brokerURL" value="tcp://localhost:61616" />
+		<property name="userName" value="admin" />
+		<property name="password" value="admin" />
+	</bean>
+
+	<bean id="pooledConnectionFactory"
+		class="org.apache.activemq.pool.PooledConnectionFactory"
+		init-method="start" destroy-method="stop">
+		<!-- maxConnections : Sets the maximum number of pooled Connection. Default 
+			= 1) -->
+		<property name="maxConnections" value="10" />
+		<!-- maximumActiveSessionPerConnection - The maximum number of active session 
+			per connection in the pool. -->
+		<property name="maximumActiveSessionPerConnection" value="20" />
+		<!-- blockIfSessionPoolIsFull : Controls behavior of session pool. Blocks 
+			call to Connection.getSession() if the session pool is full. Default = true -->
+		<property name="blockIfSessionPoolIsFull" value="true" />
+		<!-- createConnectionOnStartup - true to create a connection on startup. 
+			Used to warm-up the pool on startup. -->
+		<property name="createConnectionOnStartup" value="true" />
+		<!-- idleTimeout : The maximum time a pooled Connection can sit unused 
+			before it is eligible for removal. Default=30sec -->
+		<property name="idleTimeout" value="50" />
+		<!-- connectionFactory : Sets the ConnectionFactory used to create new 
+			pooled Connections. -->
+		<property name="connectionFactory"
+			ref="activeMQConnectionFactory" />
+	</bean>
+
+	<bean id="jmsConfiguration"
+		class="org.apache.camel.component.jms.JmsConfiguration">
+		<property name="connectionFactory"
+			ref="pooledConnectionFactory" />
+		<!-- concurrentConsumers : Maximum no.of concurrent invokers -->
+		<property name="concurrentConsumers" value="5" />
+		<!-- maxConcurrentConsumers : Allows dynamic scaling for no.of concurrent 
+			invokers as well as dynamic shrinking back to the standard no.of consumers 
+			once the load decreases. -->
+		<property name="maxConcurrentConsumers" value="10" />
+	</bean>
+
+	<bean id="activemq"
+		class="org.apache.activemq.camel.component.ActiveMQComponent">
+		<property name="configuration" ref="jmsConfiguration" />
+	</bean>
+
+	<bean id="studentsApiResource"
+		class="com.javaoutofbounds.pojo.StudentResource" />
+
+	<bean class="com.fasterxml.jackson.databind.ObjectMapper"
+		id="objectMapper" />
+	<bean
+		class="org.springframework.beans.factory.config.MethodInvokingFactoryBean"
+		id="objectMapperEnable">
+		<property name="targetObject" ref="objectMapper" />
+		<property name="targetMethod" value="configure" />
+		<property name="arguments">
+			<list>
+				<value>STRICT_DUPLICATE_DETECTION</value>
+				<value>true</value>
+			</list>
+		</property>
+	</bean>
+	<bean class="com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider"
+		id="jacksonJsonProvider">
+		<property name="mapper" ref="objectMapperEnable" />
+	</bean>
+
+	<cxf:rsServer id="cxfrsRestApiEndpoint"
+		address="http://localhost:8282">
+		<cxf:serviceBeans>
+			<ref bean="studentsApiResource" />
+		</cxf:serviceBeans>
+		<cxf:providers>
+			<ref bean="jacksonJsonProvider" />
+		</cxf:providers>
+	</cxf:rsServer>
+
+	<camelContext
+		xmlns="http://camel.apache.org/schema/spring" trace="false">
+		<dataFormats>
+			<jacksonxml id="studentUnmarshalXml"
+				unmarshalTypeName="com.javaoutofbounds.pojo.StudentXml"
+				prettyPrint="true" />
+		</dataFormats>
+
+		<route>
+			<from
+				uri="cxfrs:bean:cxfrsRestApiEndpoint?bindingStyle=SimpleConsumer" />
+			<toD uri="direct:${header.operationName}" />
+		</route>
+		<route>
+			<from uri="direct:getStudent" />
+			<convertBodyTo type="String" charset="UTF-8" />
+			<to uri="activemq:queue:JavaOutOfBoundsQueue" pattern="InOnly" />
+			<log message="Messsage sent to AMQ Queue ${body}" />
+		</route>
+
+		<route>
+			<from uri="direct:sendStudentJson" />
+			<log message="Input request: ========== ${body}" />
+			<to uri="activemq:queue:JavaOutOfBoundsQueue" pattern="InOnly" />
+			<log message="Messsage sent to AMQ Queue ${body}" />
+		</route>
+
+		<route>
+			<from uri="direct:sendStudentXml" />
+			<log message="Input request: ==========  ${body}" />
+			<convertBodyTo type="String" charset="UTF-8" />
+			<to uri="activemq:queue:JavaOutOfBoundsQueue" pattern="InOnly" />
+			<log message="Messsage sent to AMQ Queue ${body}" />
+			<marshal ref="studentUnmarshalXml" />
+		</route>
+
+		<route>
+			<from uri="activemq:queue:JavaOutOfBoundsQueue" />
+			<log message="Messsage read from AMQ Queue ${body}" />
+		</route>
+	</camelContext>
+</beans>

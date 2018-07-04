@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:camel="http://camel.apache.org/schema/spring"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:jaxrs="http://cxf.apache.org/jaxrs"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd
+       http://cxf.apache.org/jaxrs http://cxf.apache.org/schemas/jaxrs.xsd">
+
+	<bean id="studentsApiResource"
+		class="com.javaoutofbounds.pojo.StudentResource" />
+
+	<bean id="studentXml" class="com.javaoutofbounds.pojo.StudentXml" />
+
+	<camelContext id="camelContext"
+		xmlns="http://camel.apache.org/schema/spring">
+
+		<dataFormats>
+			<jacksonxml id="studentJacksonXml"
+				unmarshalTypeName="com.javaoutofbounds.pojo.StudentXml"
+				prettyPrint="true" />
+		</dataFormats>
+
+		<restConfiguration component="servlet"
+			contextPath="/" port="8080" enableCORS="true" bindingMode="auto" />
+		<rest>
+			<get uri="/welcome">
+				<to uri="bean:studentsApiResource?method=welcomeStudent" />
+			</get>
+
+			<get uri="{id}">
+				<to uri="bean:studentsApiResource?method=getStudent" />
+			</get>
+
+			<post uri="/saveStudent"
+				type="com.javaoutofbounds.pojo.StudentDetails">
+				<to uri="bean:studentsApiResource?method=saveStudent" />
+			</post>
+
+			<post uri="/saveStudentXml">
+				<to uri="direct:saveStudentXml" />
+			</post>
+		</rest>
+		<route id="saveStudentXml">
+			<from uri="direct:saveStudentXml" />
+			<log message="Before unmarshlling ###########: ${body}" />
+			
+			<unmarshal ref="studentJacksonXml" />
+			
+			<log message="After unmarshlling ===========: ${body}" />
+			
+			<to uri="bean:studentsApiResource?method=saveStudentXml" />
+			
+			<marshal ref="studentJacksonXml" />
+			<log message="After marshlling ===========: ${body}" />
+		</route>
+	</camelContext>
+</beans>

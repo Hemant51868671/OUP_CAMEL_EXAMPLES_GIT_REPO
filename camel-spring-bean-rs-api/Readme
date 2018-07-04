@@ -1,0 +1,35 @@
+Project: camel-spring-bean-rs-api
+Description: This is exposing rest end points using camel. This project is following spring dsl approach.
+
+Services:
+
+Welcome service:
+Verb: GET
+Content-Type: text/plain 
+Endpoint URL: http://localhost:8080/camel/welcome
+
+Save student service accepts json request:
+Verb: POST
+Content-Type: application/json
+Endpoint URL: http://localhost:8080/camel/saveStudent
+
+Request example:
+
+{
+  "id": "101",
+  "grade": "B",
+  "name": "Sam Wood",
+  "marks": 65.78
+}
+
+Save student service accepts xml request:
+Verb: POST
+Content-Type: application/xml
+Endpoint URL: http://localhost:8080/camel/saveStudentXml
+
+Request example:
+<studentxml>
+	<id>1000</id>
+	<name>name</name>
+	<address>Address</address>
+</studentxml>

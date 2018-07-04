@@ -1,0 +1,33 @@
+Project: camel-activemq-example
+Description: This is exposing rest end points via rest service. User can send/read JSON/XML request/message via specified end points. This project is following spring dsl approach.
+
+Camel-context.xml: Spring dsl approach has been followed. In memory Queue configuration is specified in camel-context.xml. 
+
+Services:
+
+Send student json service accepts json request:
+Verb: POST
+Content-Type: application/json
+Endpoint URL: http://localhost:8282/sendStudentJson
+
+Request example:
+
+{
+  "id": "101",
+  "grade": "B",
+  "name": "Sam Wood",
+  "marks": 65.78
+}
+
+Send student xml service accepts xml request:
+Verb: POST
+Content-Type: application/xml
+Endpoint URL: http://localhost:8282/sendStudentXml
+
+Request example:
+<studentxml>
+	<id>1000</id>
+	<name>name</name>
+	<address>Address</address>
+</studentxml>
+
